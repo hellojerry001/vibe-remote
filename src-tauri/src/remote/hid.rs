@@ -257,7 +257,7 @@ pub fn start(app: AppHandle, state: &tauri::State<AppState>) -> Result<(), Strin
             // 让用户按一遍就能把映射表补全，不用来回猜。
             #[cfg(all(debug_assertions, target_os = "macos"))]
             eprintln!(
-                "[webcoding] HID page=0x{:02X} usage=0x{:02X} value={} → {}",
+                "[viberemote] HID page=0x{:02X} usage=0x{:02X} value={} → {}",
                 raw.usage_page, raw.usage, raw.value, event_name
             );
             let hid = HidEvent {
@@ -338,7 +338,7 @@ pub fn start(app: AppHandle, state: &tauri::State<AppState>) -> Result<(), Strin
             // 调试构建打到 stderr，省掉一轮「猜 PID」。
             #[cfg(all(debug_assertions, target_os = "macos"))]
             eprintln!(
-                "[webcoding] 遥控器 HID 设备数 = {count}，匹配 PID = {}",
+                "[viberemote] 遥控器 HID 设备数 = {count}，匹配 PID = {}",
                 hex_pid(unsafe { wc_siri_remote_matched_pid() })
             );
             let st = app_for_conn.state::<AppState>();
@@ -387,9 +387,9 @@ pub fn start(app: AppHandle, state: &tauri::State<AppState>) -> Result<(), Strin
         let _ = app_for_watchdog.emit(
             "siri-remote-ready",
             if opened {
-                "输入监控已生效，A2854 HID 监听已自动恢复。若仍无反应，请彻底退出并重启 WebCoding。"
+                "输入监控已生效，A2854 HID 监听已自动恢复。若仍无反应，请彻底退出并重启 VibeRemote。"
             } else {
-                "输入监控已授权，但 HID Manager 仍打开失败，请彻底退出并重启 WebCoding。"
+                "输入监控已授权，但 HID Manager 仍打开失败，请彻底退出并重启 VibeRemote。"
             },
         );
     });

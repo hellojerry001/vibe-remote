@@ -1,4 +1,4 @@
-# Web Coding
+# VibeRemote
 
 用 **Siri Remote 控制 Mac**，把遥控事件映射为面向 AI Agent（Codex / WorkBuddy / Cursor…）的动作：批准、拒绝、继续、发送、语音输入、快捷键、AppleScript、Shell 命令。
 
@@ -43,23 +43,23 @@ npm run tauri:build      # 打包 + 固定签名标识符（产出 App 与 DMG�
 产物：
 
 ```text
-src-tauri/target/release/bundle/macos/WebCoding.app
-src-tauri/target/release/bundle/dmg/WebCoding.dmg
+src-tauri/target/release/bundle/macos/VibeRemote.app
+src-tauri/target/release/bundle/dmg/VibeRemote.dmg
 ```
 
 > 打包出来的 **未签名、未公证**，首次打开可能被 Gatekeeper 拦下：右键 → 打开，或
-> `xattr -d com.apple.quarantine WebCoding.app` 后再启动。
+> `xattr -d com.apple.quarantine VibeRemote.app` 后再启动。
 > 需要消除拦截提示可做签名 + 公证：`codesign --deep --force --options runtime --sign -` 后 `xcrun notarytool` 提交。
 
 ## 用 A2854 直连（推荐路径）
 
 1. 若遥控器还连着 Apple TV，先在那里取消配对；
 2. Mac 系统设置 → **蓝牙**，让遥控器进入配对状态并连上；
-3. 启动 Web Coding；
+3. 启动 VibeRemote；
 4. 授权两项权限：
    - **隐私与安全性 → 输入监控**（读取遥控器按键，必填）
    - **隐私与安全性 → 辅助功能**（发送键盘事件、点击按钮）
-   > 输入监控属于 macOS TCC 项目，**授权后必须重启 Web Coding 才生效**。
+   > 输入监控属于 macOS TCC 项目，**授权后必须重启 VibeRemote 才生效**。
 5. 按一下遥控器任意键——状态页「HID 原始事件」应实时出现 usage，说明链路已通；
 6. 到「遥控器映射」页确认每个按键的默认动作，按住确认键 0.6 秒可触发 `centerLongPress`。
 
@@ -73,7 +73,7 @@ src-tauri/target/release/bundle/dmg/WebCoding.dmg
 2. **配对**：向导会把系统蓝牙里已知的设备列出来（名称匹配 `Siri Remote`，
    或用 Apple VID `0x004C` + PID `0x0315` 兜底校验）。点「打开系统蓝牙设置」，
    在面板里点一下遥控器即可完成配对与连接。
-3. **验证**：配对 → 链路连接 → `Web Coding Ready`。此时按一下**确认键**，
+3. **验证**：配对 → 链路连接 → `VibeRemote Ready`。此时按一下**确认键**，
    下方「HID 原始事件」应立即出现一行 usage——这一个动作同时验证了
    蓝牙、输入监控授权、A2854 匹配三层。
 
@@ -109,10 +109,69 @@ UI 上永远同时显示三行，各自独立判断通没通：
 ## 用 tvOS App（可选路径）
 
 ```bash
-brew install xcodegen && xcodegen generate && open WebCoding.xcodeproj
+brew install xcodegen && xcodegen generate && open VibeRemote.xcodeproj
 ```
 
 选 `WebCodingTV` target 运行到 Apple TV，与 Mac 同 Wi-Fi 即自动连接。**tvOS App 需保持前台**才能收事件，且真机运行需要 Apple Developer 账号。
+
+## 内置自动更新
+
+「检查更新」走 Tauri 官方 updater 插件：**在应用内下载安装包、替换应用、自动重启**，不跳转到 GitHub 下载页。
+开关「有新版本时自动检查」会在启动时静默查一次，发现更新就直接装好。
+
+```
+前端      关于页 check() / update.downloadAndInstall()
+Rust      tauri-plugin-updater
+配置      tauri.conf.json 的 plugins.updater：
+            - endpoints = https://raw.githubusercontent.com/hellojerry001/vibe-remote/main/update.json
+            - pubkey    = 签名公钥（必填，否则拒绝安装）
+            - bundle.createUpdaterArtifacts = true（默认 false，不打开就产不出更新包）
+打包      src-tauri/target/release/bundle/macos/VibeRemote.app.tar.gz[.sig]
+权限      capabilities/default.json 里 updater:default
+```
+
+`update.json` 是 updater 唯一的检查入口，格式固定为「静态多平台」：
+
+```json
+{
+  "version": "0.2.0",
+  "notes": "VibeRemote 0.2.0",
+  "pub_date": "2026-09-26T10:57:47Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "url": "https://github.com/.../releases/download/v0.2.0/VibeRemote.app.tar.gz",
+      "signature": "<.sig 文件内容>"
+    }
+  }
+}
+```
+
+> 注意：`releases/latest` 那种 GitHub Release JSON **不能**直接用，
+> updater 只认 `version|name` + `platforms{os-arch}`（或 `url`+`signature`）两种形状。
+> `darwin-aarch64` 这个 key 必须存在，updater 会依次尝试 `darwin-aarch64-app`、`darwin-aarch64`。
+
+**发布一个新版本的完整流程**（两个脚本，缺一不可）：
+
+```bash
+# 1) 生成签名密钥（只需一次），把公钥填进 tauri.conf.json 的 plugins.updater.pubkey
+npx tauri signer generate -p "" -w ~/viberemote-updater/updater.key -v
+#    私钥留着，后面打包要用
+
+# 2) 升版本号（package.json / src-tauri/Cargo.toml / src-tauri/tauri.conf.json 三处）
+# 3) 构建 + 签名 + 生成 update.json
+TAURI_SIGNING_PRIVATE_KEY="$(cat ~/viberemote-updater/updater.key)" \
+  scripts/release-build.sh
+
+# 4) 把 update.json 提交并推到 main（endpoints 指向的就是 main 分支上的这个文件）
+git add update.json && git commit -m "release: v0.2.0" && git push
+
+# 5) 建 GitHub Release 并上传 VibeRemote.app.tar.gz / .sig / .dmg
+scripts/publish-gh.sh 0.2.0
+```
+
+> macOS 的 updater 产物固定叫 `VibeRemote.app.tar.gz`，不带版本号；
+> dmg 则叫 `VibeRemote_<version>_aarch64.dmg`。
+> 打包时 dmg 步骤会写 `/Volumes`，需要绕过沙箱执行 `tauri build`。
 
 ## 关键实现
 

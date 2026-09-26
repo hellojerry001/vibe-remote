@@ -46,7 +46,7 @@ pub fn start(app: AppHandle) {
                     *state.mdns.lock().unwrap() = Some(daemon);
                 }
             }
-            Err(e) => eprintln!("[webcoding] Bonjour 注册失败: {e}"),
+            Err(e) => eprintln!("[viberemote] Bonjour 注册失败: {e}"),
         }
 
         let _ = app.emit(

@@ -66,11 +66,15 @@ body {
   width: 26px;
   height: 26px;
   border-radius: 7px;
-  background: var(--accent);
-  color: #fff;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
   flex-shrink: 0;
+}
+
+.brand-icon img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .nav {
@@ -125,6 +129,27 @@ body {
   font-size: 13px;
   font-weight: 500;
   border-top: 1px solid var(--hairline);
+}
+
+/* 页脚「关于」是可点击入口，样式对齐 nav-item */
+button.sidebar-footer {
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+button.sidebar-footer:hover {
+  background: none;
+}
+
+button.sidebar-footer .footer-avatar {
+  background: var(--hover);
 }
 
 .footer-avatar {
@@ -1166,5 +1191,170 @@ input[type="range"] {
 
   .content {
     padding: 18px 16px 32px;
+  }
+}
+
+/* ---------- 关于页 ---------- */
+
+.about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 34px 0 26px;
+}
+
+.about-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-card), 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.about-name {
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.about-desc {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.about-card {
+  background: var(--surface);
+  border-radius: 13px;
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.about-link-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.about-link-row:hover .about-row-title {
+  color: #000;
+}
+
+.about-arrow {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.about-row-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.about-row-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.about-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* 关于页：自动检查行分隔线 / 发现新版本高亮 */
+.about-divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 12px -16px;
+}
+
+.about-new {
+  color: #b3541e;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* 关于页：下载安装进度 */
+.about-progress {
+  width: 128px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.about-progress-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+
+.about-progress span {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* 关于页：检查结果轻提示（参考 Chatterfly 的 ✓ 胶囊） */
+.about-toast {
+  position: fixed;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  z-index: 100;
+  animation: about-toast-in 0.22s ease-out;
+  pointer-events: none;
+}
+
+@keyframes about-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }

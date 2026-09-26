@@ -88,7 +88,7 @@ pub struct Preset {
     /// "com.tencent.workbuddy.mac"）。留空 = 发给「当前前台 App」。
     ///
     /// 这是「遥控器控制 WorkBuddy」的关键：不依赖你正好盯着哪个窗口 ——
-    /// 你在看 Web Coding 的设置页时，按键也不会落错地方。
+    /// 你在看 VibeRemote 的设置页时，按键也不会落错地方。
     #[serde(default)]
     pub target_app: Option<String>,
 }
@@ -275,7 +275,7 @@ impl Engine {
             };
         };
         // Preset 可以把按键固定发给某个 App。不这么做的话，按键会落进
-        // 「当前前台 App」—— 你盯着 Web Coding 的设置页时，WorkBuddy 什么都收不到，
+        // 「当前前台 App」—— 你盯着 VibeRemote 的设置页时，WorkBuddy 什么都收不到，
         // 看起来就像「映射没生效」。
         if let Some(target) = self.target_app() {
             focus_target(&target);
@@ -705,7 +705,7 @@ fn parse_macro(value: &str) -> Option<Vec<MacroStep>> {
 }
 
 const NEED_PERMISSION: &str =
-    "需要辅助功能权限：系统设置 → 隐私与安全性 → 辅助功能 → 允许 WebCoding";
+    "需要辅助功能权限：系统设置 → 隐私与安全性 → 辅助功能 → 允许 VibeRemote";
 
 /// AX 找按钮的超时护栏。`entire contents` 在大窗口（Electron）上可能秒级，
 /// 不设上限会把 approve 类动作的延迟拖到用户可感知。
@@ -774,7 +774,7 @@ mod tests {
         let mut config = default_config();
         config.preset = "WorkBuddy".into();
         let path = std::env::temp_dir().join(format!(
-            "webcoding-test-target-{}.json",
+            "viberemote-test-target-{}.json",
             std::process::id()
         ));
         let mut engine = Engine {

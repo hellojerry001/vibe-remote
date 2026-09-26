@@ -110,7 +110,7 @@ export default function Remote() {
           {sys?.inputMonitoring === "granted" && sys.a2854Matched && !sys.hidManagerOpen && (
             <div className="mapping-result">
               已匹配到遥控器（PID {sys.productId}），但 HID Manager 没打开。
-              权限若是刚改的，请彻底退出并重新启动 WebCoding。
+              权限若是刚改的，请彻底退出并重新启动 VibeRemote。
             </div>
           )}
           {status?.hidError && <DiagError detail={status.hidError} />}
@@ -394,7 +394,7 @@ function SetupWizard({ connection }: { connection: ConnectionState | null }) {
 
         {m === "hid_ready" && (
           <div className="ready">
-            <div className="ready-title">Web Coding Ready</div>
+            <div className="ready-title">VibeRemote Ready</div>
             <div className="ready-rows">
               <span>Siri Remote</span>
               <span className="ok">● Connected</span>

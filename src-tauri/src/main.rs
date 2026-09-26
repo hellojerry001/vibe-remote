@@ -22,6 +22,7 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::ShortcutState;
+use tauri_plugin_updater::UpdaterExt;
 
 use mapping::engine::{Config, Engine, Mapping, MappingKind, ActionResult};
 
@@ -258,6 +259,34 @@ fn start_dragging(window: tauri::Window) {
     let _ = window.start_dragging();
 }
 
+/// 用系统默认浏览器打开外部链接（关于页「检查更新 / 反馈」入口）。
+/// 冷路径，允许 spawn 子进程；热路径（遥控事件）禁止这么做。
+#[tauri::command]
+fn open_url(url: String) {
+    #[cfg(target_os = "macos")]
+    {
+        // 只放行 http/https，避免被拼进任意 scheme
+        if url.starts_with("https://") || url.starts_with("http://") {
+            let _ = std::process::Command::new("open").arg(&url).spawn();
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = url;
+}
+
+/// 重启应用。Tauri 2 没有给 core process 插件注册 restart 权限，
+/// 更新安装完成后直接在这里走 app.restart()，前端不用额外插件。
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    app.restart();
+}
+
+/// 应用版本号（取自 tauri.conf.json 的 version），关于页展示用。
+#[tauri::command]
+fn get_app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
 /// 隐藏 macOS 红绿灯里的「放大」按钮，只保留关闭 + 最小化。
 /// Overlay 标题栏模式下 tauri 没有现成 API，直接 objc FFI NSWindow。
 #[cfg(target_os = "macos")]
@@ -326,12 +355,12 @@ fn tray_icon_image() -> tauri::image::Image<'static> {
 
 fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let toggle = MenuItem::with_id(app, "toggle", "显示 / 隐藏设置", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出 Web Coding", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出 VibeRemote", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&toggle, &quit])?;
 
     TrayIconBuilder::new()
         .icon(tray_icon_image())
-        .tooltip("Web Coding")
+        .tooltip("VibeRemote")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -355,6 +384,8 @@ fn main() {
                 })
                 .build(),
         )
+        // 内置更新：自行下载安装包并替换应用，不跳转 GitHub
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
             let engine = Engine::load(config_path(&handle));
@@ -427,8 +458,11 @@ fn main() {
             bt_start_scan,
             bt_stop_scan,
             open_bluetooth_settings,
-            set_preset_target
+            set_preset_target,
+            open_url,
+            get_app_version,
+            restart_app
         ])
         .run(tauri::generate_context!())
-        .expect("Web Coding 启动失败");
+        .expect("VibeRemote 启动失败");
 }

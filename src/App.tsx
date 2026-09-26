@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import Mappings from "./pages/Mappings";
+import About from "./pages/About";
 import Presets from "./pages/Presets";
 import Remote from "./pages/Remote";
 import { useAppStore } from "./stores/useAppStore";
@@ -13,10 +14,14 @@ const TABS = [
   { id: "presets", label: "Agent Preset", icon: IconLayers },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof TABS)[number]["id"] | "about";
 
 export default function App() {
-  const [tab, setTab] = useState<TabId>("remote");
+  // 支持 #about 深链直达（初始一次即可）
+  const [tab, setTab] = useState<TabId>(() => {
+    const h = window.location.hash.slice(1) as TabId;
+    return h === "remote" || h === "mappings" || h === "presets" || h === "about" ? h : "remote";
+  });
   const loadConfig = useAppStore((s) => s.loadConfig);
   const refreshStatus = useAppStore((s) => s.refreshStatus);
   const setStatus = useAppStore((s) => s.setStatus);
@@ -81,13 +86,10 @@ export default function App() {
       <aside className="sidebar">
           <div className="brand">
           <span className="brand-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="4" y="1" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.4" />
-              <circle cx="7" cy="4" r="0.9" fill="currentColor" />
-              <circle cx="7" cy="7" r="0.9" fill="currentColor" />
-            </svg>
+            {/* 与启动图标同源：src-tauri/icons/icon.png → public/app-icon.png */}
+            <img src="/app-icon.png" alt="" draggable={false} />
           </span>
-          Web Coding
+          VibeRemote
         </div>
         <nav className="nav">
             {TABS.map((t) => (
@@ -101,23 +103,38 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <SidebarStatus />
+        <SidebarAbout active={tab === "about"} onClick={() => setTab("about")} />
       </aside>
       <main className="content">
-        {tab === "remote" && <Remote />}
-        {tab === "mappings" && <Mappings />}
-        {tab === "presets" && <Presets />}
+          {tab === "remote" && <Remote />}
+          {tab === "mappings" && <Mappings />}
+          {tab === "presets" && <Presets />}
+          {tab === "about" && <About />}
       </main>
     </div>
   );
 }
 
-function SidebarStatus() {
+function SidebarAbout({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
-    <div className="sidebar-footer">
-      <span className="footer-avatar">J</span>
-      <span>Jerry</span>
-    </div>
+    <button
+      className={active ? "sidebar-footer about active" : "sidebar-footer about"}
+      onClick={onClick}
+    >
+      <span className="footer-avatar">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+          <circle cx="8" cy="5.4" r="0.9" fill="currentColor" />
+          <path
+            d="M8 7.4v3.4"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+      <span>关于</span>
+    </button>
   );
 }
 
