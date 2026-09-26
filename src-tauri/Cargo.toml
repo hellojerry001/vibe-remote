@@ -1,0 +1,21 @@
+[package]
+name = "webcoding"
+version = "0.1.0"
+edition = "2021"
+description = "Apple TV Remote -> Mac Agent bridge (Codex / WorkBuddy / custom presets)"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+cc = "1"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync", "process"] }
+axum = { version = "0.8", features = ["ws"] }
+mdns-sd = "0.13"
+
+[profile.dev]
+opt-level = 1
