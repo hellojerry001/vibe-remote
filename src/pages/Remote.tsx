@@ -45,7 +45,9 @@ export default function Remote() {
 
   return (
     <section>
-      <h2>设备状态</h2>
+      <div className="page-head">
+        <h2>设备状态</h2>
+      </div>
       <div className="cards">
         <StatusCard
           title="Siri Remote"

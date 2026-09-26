@@ -100,7 +100,8 @@ export default function About() {
   const showToast = (msg: string) => {
     setToast(msg);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 2400);
+    // 失败信息比较长，多留几秒让人看清原因
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 8000);
   };
 
   /** 真正下载安装包 + 替换应用 + 重启，而不是跳到浏览器 */
@@ -130,10 +131,13 @@ export default function About() {
       await invoke("restart_app");
     } catch (e) {
       // 最常见的失败是「更新包没签名 / 公钥不匹配」：给明确提示，别只回退下载页
-      const msg = e instanceof Error ? e.message.toLowerCase() : "";
+      const raw = e instanceof Error ? e.message : String(e);
+      const msg = raw.toLowerCase();
       setCheckFailed(true);
       const unsigned = msg.includes("signature") || msg.includes("verify") || msg.includes("not signed");
-      showToast(unsigned ? "更新包未通过签名校验，已打开下载页" : "更新失败，已打开下载页");
+      showToast(
+        (unsigned ? "更新包未通过签名校验：" : "更新失败：") + raw.replace(/\s+/g, " ").slice(0, 90),
+      );
       openInBrowser(`${REPO}/releases`);
     } finally {
       setUpdating(false);
@@ -170,8 +174,10 @@ export default function About() {
 
   return (
     <>
-      <h2>关于</h2>
-      <p className="subtitle">版本信息与更新</p>
+      <div className="page-head">
+        <h2>关于</h2>
+        <p className="subtitle">版本信息与更新</p>
+      </div>
 
       <div className="about-hero">
         <img className="about-icon" src="/app-icon.png" alt="VibeRemote" draggable={false} />

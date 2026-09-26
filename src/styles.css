@@ -190,10 +190,24 @@ button.sidebar-footer .footer-avatar {
 /* ---------- 内容区 ---------- */
 
 .content {
+  /* 内容区内边距的唯一来源：吸顶条靠它算负 margin，改断点只改这一个值 */
+  --content-pad: 24px;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 24px 24px 44px;
+  padding: var(--content-pad) var(--content-pad) 44px;
+}
+
+/* 顶部标题吸顶：滚动时标题固定在内容区顶部，内容从其下方滚过。
+   负 margin 抵掉 .content 的左右留白，让遮盖背景铺满整行，
+   否则正文会从标题左右两侧的空隙里透出来。 */
+.page-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: calc(-1 * var(--content-pad)) calc(-1 * var(--content-pad)) 0;
+  padding: var(--content-pad) var(--content-pad) 4px;
+  background: var(--bg);
 }
 
 h2 {
@@ -1135,7 +1149,8 @@ input[type="range"] {
 
 @media (max-width: 900px) {
   .content {
-    padding: 22px 22px 40px;
+    --content-pad: 22px;
+    padding-bottom: 40px;
   }
 
   .sidebar {
@@ -1190,7 +1205,8 @@ input[type="range"] {
   }
 
   .content {
-    padding: 18px 16px 32px;
+    --content-pad: 16px;
+    padding-bottom: 32px;
   }
 }
 

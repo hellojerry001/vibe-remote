@@ -207,13 +207,15 @@ export default function Mappings() {
 
   return (
     <section>
-      <div className="row-head">
-        <h2>遥控器映射</h2>
-        <Dropdown
-          value={config.preset}
-          options={Object.keys(config.presets).map((name) => ({ value: name, label: name }))}
-          onChange={(v) => setPreset(v)}
-        />
+      <div className="page-head">
+        <div className="row-head">
+          <h2>遥控器映射</h2>
+          <Dropdown
+            value={config.preset}
+            options={Object.keys(config.presets).map((name) => ({ value: name, label: name }))}
+            onChange={(v) => setPreset(v)}
+          />
+        </div>
       </div>
 
       <TouchpadSettings config={config.touchpad} />

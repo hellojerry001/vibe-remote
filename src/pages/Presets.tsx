@@ -34,7 +34,9 @@ export default function Presets() {
 
   return (
     <section>
-      <h2>Agent Preset</h2>
+      <div className="page-head">
+        <h2>Agent Preset</h2>
+      </div>
       <p className="muted">
         Preset = 一组「遥控事件 → 动作」映射。为 Codex、WorkBuddy、Cursor 等分别维护一套，
         在「遥控器映射」页切换后立即生效。
