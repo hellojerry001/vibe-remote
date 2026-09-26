@@ -18,6 +18,13 @@ if [ -z "$TARGET" ]; then
   TARGET="$(grep -m1 '"version"' src-tauri/tauri.conf.json | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
 fi
 
+# Manifest/tag must describe the actual bundled version.
+ACTUAL_VERSION="$(/usr/bin/python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')"
+if [ "$TARGET" != "$ACTUAL_VERSION" ]; then
+  echo "!! 请求版本 $TARGET 与应用版本 $ACTUAL_VERSION 不一致，请先同步版本号" >&2
+  exit 1
+fi
+
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # macOS 上 dmg 步骤会往 /Volumes 写临时文件，沙箱会拦，所以需要提权跑
@@ -42,6 +49,19 @@ SIG="${PKG}.sig"
 if [ ! -f "$BUNDLE/$PKG" ] || [ ! -f "$BUNDLE/$SIG" ]; then
   echo "!! 没找到更新产物，检查 $BUNDLE" >&2
   ls -la "$BUNDLE" >&2
+  exit 1
+fi
+
+# Tauri must sign the .app before creating the updater archive. Signing only
+# the loose .app afterwards leaves the published archive with the old signature.
+VERIFY_DIR="$(mktemp -d)"
+trap 'rm -rf "$VERIFY_DIR"' EXIT
+tar -xzf "$BUNDLE/$PKG" -C "$VERIFY_DIR"
+codesign --verify --deep --strict "$VERIFY_DIR/VibeRemote.app"
+BUNDLE_ID="$(/usr/bin/python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["identifier"])')"
+SIGN_ID="$(codesign -dv "$VERIFY_DIR/VibeRemote.app" 2>&1 | sed -n 's/^Identifier=//p')"
+if [ "$SIGN_ID" != "$BUNDLE_ID" ]; then
+  echo "!! 更新包应用签名标识符不匹配：$SIGN_ID" >&2
   exit 1
 fi
 

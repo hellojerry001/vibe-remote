@@ -220,3 +220,12 @@ Rust 经 `get_system_status` 真实读取，前端不做任何推断。
 中央圆形触控区域通过 MultitouchSupport 接收完整触摸帧，使用 IORegistry 中遥控器的 ProductID、Family ID（145）及 Multitouch ID 匹配，排除 Mac 内置触控板。每两秒重新发现设备，支持断开重连。标准 HID Digitizer 绝对坐标仅作后备。
 设备状态页显示触控连接、接收帧数和鼠标移动发送次数；diag.json 的 touchpad 字段也保存同样的真实计数。默认灵敏度 10 时，横跨整个触摸面约移动 1000 屏幕坐标单位。
 私有 ABI 参考：[Remotastic MultitouchSupport 声明](https://github.com/lauschue/Remotastic/blob/main/MultitouchSupport.h)。框架或符号不可用时报告错误，不影响按键功能。
+
+### 检查更新的反馈与验证
+
+「关于 → 检查更新」只有在更新服务成功返回无新版本后，才显示“已是最新”并弹出“当前已是最新版本”提示。网络错误、404 或无效更新清单显示检查失败，不作为最新版处理。
+发现新版本后可在客户端点击“立即更新”，由 Tauri 下载、校验签名、安装并重启；进度和失败提示在所有页面可见。开启自动更新时，启动检查发现新版本会自动完成以上流程。安装成功但重启失败时可重试重启，无需再次下载。
+
+更新逻辑回归测试：`npm run test:updater`。测试使用模拟更新服务覆盖无更新、新版本、自动更新并发、网络/签名失败及重启重试；不替换真实客户端。构建验证：`npm run build`。
+
+发布时由 Tauri 的 `bundle.macOS.signingIdentity` 在归档前完成 App 签名，`release-build.sh` 解包更新归档并检查代码签名及标识符后才生成清单；避免只对归档外的 App 补签名。更新包的 Tauri 签名与 App 的 macOS 代码签名是两层独立检查。
