@@ -27,9 +27,11 @@ export PATH="$HOME/.cargo/bin:$PATH"
 if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -f "${TAURI_SIGNING_PRIVATE_KEY_PATH:-$HOME/viberemote-updater/updater.key}" ]; then
   TAURI_SIGNING_PRIVATE_KEY="$(cat "${TAURI_SIGNING_PRIVATE_KEY_PATH:-$HOME/viberemote-updater/updater.key}")"
 fi
+# 必须 export：tauri CLI 是子进程，shell 局部变量它看不到
+export TAURI_SIGNING_PRIVATE_KEY
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD-}"
 
-echo "==> 打包 VibeRemote $TARGET（带 updater 签名）"
+echo "==> 打包 VibeRemote ${TARGET}（带 updater 签名）"
 npx tauri build
 
 BUNDLE="$ROOT/src-tauri/target/release/bundle/macos"
@@ -47,9 +49,9 @@ PUBDATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 REPO_SLUG="hellojerry001/vibe-remote"
 URL="https://github.com/${REPO_SLUG}/releases/download/v${TARGET}/${PKG}"
 
-/Users/jerry/.workbuddy/binaries/python/versions/3.13.12/bin/python3 - "$PKG" "$SIG" "$TARGET" "$PUBDATE" "$URL" <<'PY'
+/Users/jerry/.workbuddy/binaries/python/versions/3.13.12/bin/python3 - "$BUNDLE/$PKG" "$BUNDLE/$SIG" "$TARGET" "$PUBDATE" "$URL" "$ROOT/update.json" <<'PY'
 import json, sys
-pkg, sig, version, pubdate, url = sys.argv[1:6]
+pkg, sig, version, pubdate, url, out = sys.argv[1:7]
 with open(sig) as f:
     signature = f.read().strip()
 data = {
@@ -60,10 +62,10 @@ data = {
         "darwin-aarch64": {"url": url, "signature": signature},
     },
 }
-with open("update.json", "w") as f:
+with open(out, "w") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
-print("==> update.json 已写入")
+print("==> update.json 已写入", out)
 PY
 
 echo "==> 产物："
