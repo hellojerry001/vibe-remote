@@ -212,8 +212,13 @@ button.sidebar-footer .footer-avatar {
   top: 0;
   z-index: 20;
   margin: 0 calc(-1 * var(--content-pad));
-  padding: var(--content-pad) var(--content-pad) 4px;
+  /* 底部不留 padding：标题（或 row-head）自己的 margin-bottom 负责与下方内容的间距，
+     否则它会被 padding 锁进条内、和外部 margin-top 叠加，标题下间距凭空变大。
+     折叠出去的 margin 没有背景，滚动时内容会贴到标题文字底下——
+     用同色垫影（不占布局）把内容挡在文字下方几像素外。 */
+  padding: var(--content-pad) var(--content-pad) 0;
   background: var(--bg);
+  box-shadow: 0 8px 0 var(--bg);
 }
 
 h2 {
