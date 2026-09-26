@@ -22,7 +22,6 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::ShortcutState;
-use tauri_plugin_updater::UpdaterExt;
 
 use mapping::engine::{Config, Engine, Mapping, MappingKind, ActionResult};
 

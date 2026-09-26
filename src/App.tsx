@@ -6,6 +6,7 @@ import About from "./pages/About";
 import Presets from "./pages/Presets";
 import Remote from "./pages/Remote";
 import { useAppStore } from "./stores/useAppStore";
+import { startAutoUpdate, useUpdater } from "./updater";
 import type { ActionResult, BtDevice, ConnectionState, HidEvent, Status } from "./types";
 
 const TABS = [
@@ -31,6 +32,17 @@ export default function App() {
   const addFoundDevice = useAppStore((s) => s.addFoundDevice);
   const setScanNote = useAppStore((s) => s.setScanNote);
   const refreshConnection = useAppStore((s) => s.refreshConnection);
+
+  // 全局自动更新：启动即检查（此前只在关于页挂载时才查，等于从不自动检查）
+  const updater = useUpdater();
+  useEffect(() => {
+    invoke<string>("get_app_version")
+      .then((v) => {
+        useUpdater.getState().setAppVersion(v);
+        startAutoUpdate();
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadConfig();
@@ -111,6 +123,18 @@ export default function App() {
           {tab === "presets" && <Presets />}
           {tab === "about" && <About />}
       </main>
+      {/* 下载更新中的全局横幅：不管用户停在哪个页都能看到进度 */}
+      {updater.phase === "downloading" && (
+        <div className="update-banner" data-no-drag>
+          <span className="update-banner-text">
+            正在更新{updater.latest ? ` v${updater.latest}` : ""}… {Math.round(updater.progress * 100)}%
+          </span>
+          <div className="update-banner-bar">
+            <i style={{ width: `${Math.max(4, Math.round(updater.progress * 100))}%` }} />
+          </div>
+          <span className="update-banner-hint">完成后将自动重启</span>
+        </div>
+      )}
     </div>
   );
 }

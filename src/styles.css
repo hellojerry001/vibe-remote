@@ -1379,6 +1379,49 @@ input[type="range"] {
   pointer-events: none;
 }
 
+/* 更新下载中的全局横幅：位置与 .about-toast 同一居中逻辑（相对内容区） */
+.update-banner {
+  position: fixed;
+  top: 12px;
+  left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 200;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+}
+
+.update-banner-bar {
+  width: 90px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  overflow: hidden;
+}
+
+.update-banner-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #34a853;
+  transition: width 0.2s ease-out;
+}
+
+.update-banner-hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+}
+
 @keyframes about-toast-in {
   from {
     opacity: 0;
