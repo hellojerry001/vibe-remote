@@ -250,6 +250,44 @@ async fn test_action(action: KindInput) -> Result<ActionResult, String> {
 
 // ---------- Tray / window ----------
 
+/// 按住窗口空白处拖动窗口。
+/// `data-tauri-drag-region` 只在命中元素自身时生效，卡片/表格等子元素拖不动，
+/// 所以前端在 mousedown 时直接调这里，不依赖属性匹配。
+#[tauri::command]
+fn start_dragging(window: tauri::Window) {
+    let _ = window.start_dragging();
+}
+
+/// 隐藏 macOS 红绿灯里的「放大」按钮，只保留关闭 + 最小化。
+/// Overlay 标题栏模式下 tauri 没有现成 API，直接 objc FFI NSWindow。
+#[cfg(target_os = "macos")]
+fn hide_zoom_button(window: &tauri::WebviewWindow) {
+    use std::ffi::CString;
+    use std::os::raw::{c_char, c_void};
+
+    #[link(name = "objc", kind = "dylib")]
+    unsafe extern "C" {
+        fn sel_registerName(name: *const c_char) -> *const c_char;
+        #[link_name = "objc_msgSend"]
+        fn msg_send_std_button(receiver: *mut c_void, sel: *const c_char, which: *mut c_void) -> *mut c_void;
+        #[link_name = "objc_msgSend"]
+        fn msg_send_set_hidden(receiver: *mut c_void, sel: *const c_char, flag: bool);
+    }
+
+    unsafe {
+        let Ok(ns) = window.ns_window() else { return };
+        let ns = ns as *mut c_void;
+        // SEL 必须走 sel_registerName 注册，C 字符串指针不能直接当 SEL
+        let sel_std = sel_registerName(CString::new("standardWindowButton:").unwrap().as_ptr());
+        let sel_hide = sel_registerName(CString::new("setHidden:").unwrap().as_ptr());
+        // NSWindowButton: closeButton = 0, miniaturizeButton = 1, zoomButton = 2
+        let zoom = msg_send_std_button(ns, sel_std, 2 as *mut c_void);
+        if !zoom.is_null() {
+            msg_send_set_hidden(zoom, sel_hide, true);
+        }
+    }
+}
+
 fn toggle_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
@@ -355,6 +393,10 @@ fn main() {
                 *managed.hid_error.lock().unwrap() = Some(e.clone());
                 let _ = handle.emit("siri-remote-error", e);
             }
+            // Overlay 标题栏：隐藏放大按钮，只留关闭 + 最小化
+            if let Some(window) = app.get_webview_window("main") {
+                hide_zoom_button(&window);
+            }
             setup_tray(&handle)?;
             Ok(())
         })
@@ -366,6 +408,7 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            start_dragging,
             get_config,
             set_mapping,
             set_preset,

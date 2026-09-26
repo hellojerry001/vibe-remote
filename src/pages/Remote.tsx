@@ -51,7 +51,6 @@ export default function Remote() {
           title="Siri Remote"
           value={siriValue(connection, status?.connectedDevices ?? 0)}
         />
-        <StatusCard title="Apple TV" value={status?.tvConnected ? "已连接" : "等待连接"} />
         <StatusCard
           title="Mac 服务"
           value={status?.running ? `运行中 · 端口 ${status.port}` : "未启动"}
@@ -116,14 +115,9 @@ export default function Remote() {
           )}
           {status?.hidError && <DiagError detail={status.hidError} />}
         </div>
-        <div className="stack">
-          <button className="btn primary" onClick={() => invoke("request_input_monitoring")}>
-            申请授权
-          </button>
-          <button className="btn" onClick={() => invoke("open_input_monitoring_settings")}>
-            系统设置
-          </button>
-        </div>
+        <button className="btn primary" onClick={() => invoke("open_input_monitoring_settings")}>
+          系统设置
+        </button>
       </div>
 
       <h3>设备诊断</h3>
