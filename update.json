@@ -1,11 +1,11 @@
 {
-  "version": "0.2.1",
-  "notes": "VibeRemote 0.2.1",
-  "pub_date": "2026-09-26T13:39:02Z",
+  "version": "0.2.2",
+  "notes": "VibeRemote 0.2.2",
+  "pub_date": "2026-09-26T14:21:24Z",
   "platforms": {
     "darwin-aarch64": {
-      "url": "https://github.com/hellojerry001/vibe-remote/releases/download/v0.2.1/VibeRemote.app.tar.gz",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSREtpdTUxTFI0UTlHUTJsNE5DYXcwcyt5YXpZYXduWWZXcG5ZeGFIZnQwWkM4T0RDUFlMeC85aFVna3IydXBCREh0UFFjc0dkbHFlU0dnNTBSUzhKb1J3cHdhVWlxMGdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDI5OTQyCWZpbGU6VmliZVJlbW90ZS5hcHAudGFyLmd6CXZlcnNpb246MC4yLjEKN04vMVlmL0ZYYTNLeS9VWVdTNy9xaTRlczhVYzc3Z3FwV1lyUVAyZVdud3puL2djL2NUWExsa3RGL1lmTk5ZSjlOYzI0UFlIVVVJcTVOMXRoemxXQ3c9PQo="
+      "url": "https://github.com/hellojerry001/vibe-remote/releases/download/v0.2.2/VibeRemote.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSREtpdTUxTFI0UTJjdWFPamxtMi9lMG1wSTZPTXdRc3VIYTBhQ0xzME04YlRyLy9PVmRWK1haa1RXNmxsUW5IanMyYzg5bEdad2prQlhDUnZkWjkyaFppQ2NBL2VZbndZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwNDMyNDg0CWZpbGU6VmliZVJlbW90ZS5hcHAudGFyLmd6CXZlcnNpb246MC4yLjIKS21DTW9KSVZpVFRjK2NBWU5scENxSTBIYU1xY2k1cUwvZkJtVGhZd1ZVMEJ5ZTZaSlBicUFhVGtpUDlPMVZqaXNjMXY3aldnZ2pPT0tlTGlRTitmQ0E9PQo="
     }
   }
 }
