@@ -192,22 +192,26 @@ button.sidebar-footer .footer-avatar {
 /* ---------- 内容区 ---------- */
 
 .content {
-  /* 内容区内边距的唯一来源：吸顶条靠它算负 margin，改断点只改这一个值 */
+  /* 内容区内边距的唯一来源：吸顶条靠它算负 margin，改断点只改这一个值。
+     顶部不给 padding——留给首个 .page-head 的 padding-top 提供。
+     原因：sticky 的 top:0 约束的是 margin 边缘，如果这里给顶部 padding
+     再用负 margin 抵消，吸附时整个背景条会被 margin 推下去，
+     上沿露出一条缝（内容从标题上方漏出来），标题也被垫低一倍。 */
   --content-pad: 24px;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: var(--content-pad) var(--content-pad) 44px;
+  padding: 0 var(--content-pad) 44px;
 }
 
 /* 顶部标题吸顶：滚动时标题固定在内容区顶部，内容从其下方滚过。
-   负 margin 抵掉 .content 的左右留白，让遮盖背景铺满整行，
+   左右负 margin 抵掉 .content 的左右留白，让遮盖背景铺满整行，
    否则正文会从标题左右两侧的空隙里透出来。 */
 .page-head {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin: calc(-1 * var(--content-pad)) calc(-1 * var(--content-pad)) 0;
+  margin: 0 calc(-1 * var(--content-pad));
   padding: var(--content-pad) var(--content-pad) 4px;
   background: var(--bg);
 }
