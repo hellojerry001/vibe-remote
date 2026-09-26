@@ -19,7 +19,8 @@ function cmpVersion(a: string, b: string): number {
 
 /** 关于页：应用信息、版本检查与反馈入口（参考 VibeButler 关于页布局） */
 export default function About() {
-  const [version, setVersion] = useState("0.1.0");
+  // 先空着：版本号没回来之前不跑自动检查，避免 fallback 用旧版本号误判「发现新版本」
+  const [version, setVersion] = useState("");
   const [latest, setLatest] = useState<string | null>(null);
   const [hasNew, setHasNew] = useState(false);
   const [checking, setChecking] = useState(false);

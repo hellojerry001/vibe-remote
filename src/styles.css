@@ -2,6 +2,8 @@
   --bg: #f4f4f5;
   --bg-sidebar: #eeeff0;
   --surface: #ffffff;
+  /* 侧栏宽度唯一来源：侧栏宽度和「相对内容区居中」的浮层（如 .about-toast）都引用它 */
+  --sidebar-w: 200px;
   --hairline: rgba(0, 0, 0, 0.07);
   --border: var(--hairline);
   --text: #1c1c1e;
@@ -43,7 +45,7 @@ body {
 /* ---------- 侧边栏 ---------- */
 
 .sidebar {
-  width: 200px;
+  width: var(--sidebar-w);
   flex-shrink: 0;
   background: var(--bg-sidebar);
   padding: 44px 12px 14px;
@@ -1148,13 +1150,13 @@ input[type="range"] {
 /* ---------- 小屏适配 ---------- */
 
 @media (max-width: 900px) {
+  :root {
+    --sidebar-w: 160px;
+  }
+
   .content {
     --content-pad: 22px;
     padding-bottom: 40px;
-  }
-
-  .sidebar {
-    width: 160px;
   }
 
   .mapping-row {
@@ -1173,8 +1175,11 @@ input[type="range"] {
 }
 
 @media (max-width: 680px) {
+  :root {
+    --sidebar-w: 64px;
+  }
+
   .sidebar {
-    width: 64px;
     padding: 14px 8px;
   }
 
@@ -1345,7 +1350,8 @@ input[type="range"] {
 .about-toast {
   position: fixed;
   top: 44px;
-  left: 50%;
+  /* 相对「侧栏右侧的内容区」水平居中，而不是整个窗口（否则会压到侧栏一侧的视觉重心） */
+  left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2);
   transform: translateX(-50%);
   display: flex;
   align-items: center;
