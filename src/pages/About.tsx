@@ -15,14 +15,15 @@ export default function About() {
     progress,
     errMsg,
     autoCheck,
-    toast,
+    checked,
+    installed,
     setAppVersion,
     setAutoCheck,
     check,
     install,
   } = useUpdater();
   const checking = phase === "checking";
-  const updating = phase === "downloading";
+  const updating = phase === "downloading" || phase === "installing" || phase === "restarting";
 
   useEffect(() => {
     invoke<string>("get_app_version")
@@ -34,11 +35,11 @@ export default function About() {
       .catch(() => {});
   }, [setAppVersion]);
 
-  const versionSub = hasNew
-    ? `发现新版本${latest ? ` v${latest}` : ""}，${updating ? "正在下载安装" : "点击立即更新"}`
-    : errMsg
-      ? "检查失败，请稍后再试"
-      : "已是最新";
+  const versionSub = checking ? "正在检查新版本…"
+    : errMsg ? errMsg
+    : installed ? "更新已安装，等待重启"
+    : hasNew ? `发现新版本${latest ? ` v${latest}` : ""}，${updating ? "正在下载安装" : "点击立即更新"}`
+    : checked ? "已是最新" : "尚未检查更新";
 
   const openInBrowser = (url: string) => {
     void invoke("open_url", { url }).catch(() => {});
@@ -68,15 +69,15 @@ export default function About() {
               <div className="about-progress-bar">
                 <i style={{ width: `${Math.round(progress * 100)}%` }} />
               </div>
-              <span>正在下载并安装… {Math.round(progress * 100)}%</span>
+              <span>{phase === "restarting" ? "正在重启…" : phase === "installing" ? "正在安装…" : `正在下载… ${Math.round(progress * 100)}%`}</span>
             </div>
           ) : (
             <button
               className="btn"
-              onClick={() => void (hasNew ? install() : check(false))}
+              onClick={() => void ((hasNew || installed) ? install() : check(false))}
               disabled={checking}
             >
-              {checking ? "检查中…" : hasNew ? "立即更新" : "检查更新"}
+              {checking ? "检查中…" : installed ? "重启应用" : hasNew ? "立即更新" : "检查更新"}
             </button>
           )}
         </div>
@@ -117,24 +118,6 @@ export default function About() {
         <span>GitHub · hellojerry001/vibe-remote</span>
         <span>检查更新只访问这个仓库</span>
       </div>
-
-      {toast && (
-        <div className="about-toast" data-no-drag>
-          <span className="about-toast-icon">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <circle cx="6" cy="6" r="6" fill="#34a853" />
-              <path
-                d="M3.6 6.2l1.6 1.6 3-3.4"
-                stroke="#fff"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          {toast}
-        </div>
-      )}
     </>
   );
 }

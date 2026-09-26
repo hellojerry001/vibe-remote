@@ -123,11 +123,20 @@ export default function App() {
           {tab === "presets" && <Presets />}
           {tab === "about" && <About />}
       </main>
+      {updater.toast && (
+        <div className="about-toast" role="status" aria-live="polite" data-no-drag>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <circle cx="8" cy="8" r="8" fill="#34A853" />
+            <path d="M4.8 8.1 7 10.3 11.2 5.8" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {updater.toast}
+        </div>
+      )}
       {/* 下载更新中的全局横幅：不管用户停在哪个页都能看到进度 */}
-      {updater.phase === "downloading" && (
+      {["downloading", "installing", "restarting"].includes(updater.phase) && (
         <div className="update-banner" data-no-drag>
           <span className="update-banner-text">
-            正在更新{updater.latest ? ` v${updater.latest}` : ""}… {Math.round(updater.progress * 100)}%
+            {updater.phase === "restarting" ? "正在重启…" : updater.phase === "installing" ? "正在安装更新…" : `正在下载更新${updater.latest ? ` v${updater.latest}` : ""}… ${Math.round(updater.progress * 100)}%`}
           </span>
           <div className="update-banner-bar">
             <i style={{ width: `${Math.max(4, Math.round(updater.progress * 100))}%` }} />
