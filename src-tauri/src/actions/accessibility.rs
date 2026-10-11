@@ -4,7 +4,18 @@
 use super::applescript;
 
 pub const APPROVE_WORDS: &[&str] = &["approve", "allow", "confirm", "accept", "批准", "允许", "确认"];
-pub const REJECT_WORDS: &[&str] = &["reject", "decline", "deny", "cancel", "拒绝", "取消"];
+pub const REJECT_WORDS: &[&str] = &[
+    "reject",
+    "decline",
+    "deny",
+    "don't allow",
+    "do not allow",
+    "not now",
+    "cancel",
+    "不允许",
+    "拒绝",
+    "取消",
+];
 /// 「全部允许」的按钮文案变体；WorkBuddy 改文案时在这里补
 pub const APPROVE_ALL_WORDS: &[&str] = &[
     "全部允许",
@@ -34,7 +45,15 @@ fn build_script(words: &[&str]) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!(
-        r#"tell application "System Events"
+        r#"on lower(t)
+	try
+		return t as lowercase
+	on error
+		return t
+	end try
+end lower
+
+tell application "System Events"
 	set procName to name of first application process whose frontmost is true
 	tell application process procName
 		repeat with w in windows
@@ -45,8 +64,16 @@ fn build_script(words: &[&str]) -> String {
 						if class of el is button then
 							set n to name of el
 							if n is not missing value then
+								-- 第一遍精确匹配：避免「允许」优先匹配到「始终允许」
 								repeat with kw in {{{keywords}}}
-									if n contains (kw as string) then
+									if n is (kw as string) then
+										click el
+										return "clicked:" & n
+									end if
+								end repeat
+								-- 第二遍大小写不敏感子串兜底（中文不会小写，原样回退）
+								repeat with kw in {{{keywords}}}
+									if (my lower of n) contains (my lower of (kw as string)) then
 										click el
 										return "clicked:" & n
 									end if

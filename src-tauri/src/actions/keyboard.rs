@@ -130,6 +130,18 @@ pub fn key_code(name: &str) -> Option<u16> {
         "n" => Some(45),
         "m" => Some(46),
         "." => Some(47),
+        "f1" => Some(122),
+        "f2" => Some(120),
+        "f3" => Some(99),
+        "f4" => Some(118),
+        "f5" => Some(96),
+        "f6" => Some(97),
+        "f7" => Some(98),
+        "f8" => Some(100),
+        "f9" => Some(101),
+        "f10" => Some(109),
+        "f11" => Some(103),
+        "f12" => Some(111),
         _ => None,
     }
 }

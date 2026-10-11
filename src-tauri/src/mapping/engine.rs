@@ -512,6 +512,12 @@ pub fn dispatch(event: &str, m: &Mapping) -> ActionResult {
         },
         MappingKind::Action => match m.value.as_str() {
             "approve" => {
+                if !keyboard::accessibility_granted() {
+                    return ActionResult {
+                        detail: NEED_PERMISSION.into(),
+                        ..base
+                    };
+                }
                 match accessibility::click_frontmost_button(
                     accessibility::APPROVE_WORDS,
                     APPROVE_TIMEOUT,
@@ -532,6 +538,12 @@ pub fn dispatch(event: &str, m: &Mapping) -> ActionResult {
                 }
             }
             "reject" => {
+                if !keyboard::accessibility_granted() {
+                    return ActionResult {
+                        detail: NEED_PERMISSION.into(),
+                        ..base
+                    };
+                }
                 match accessibility::click_frontmost_button(
                     accessibility::REJECT_WORDS,
                     REJECT_TIMEOUT,
@@ -554,6 +566,12 @@ pub fn dispatch(event: &str, m: &Mapping) -> ActionResult {
             // 「全部允许」没有按键回退：对话框不在场时什么都不做，
             // 盲发按键可能误触别的确认语义。
             "approve_all" => {
+                if !keyboard::accessibility_granted() {
+                    return ActionResult {
+                        detail: NEED_PERMISSION.into(),
+                        ..base
+                    };
+                }
                 match accessibility::click_frontmost_button(
                     accessibility::APPROVE_ALL_WORDS,
                     APPROVE_ALL_TIMEOUT,
