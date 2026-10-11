@@ -11,6 +11,7 @@ fn main() {
         cc::Build::new()
             .file("native/siri_remote_bridge.c")
             .file("native/remote_multitouch.c")
+            .file("native/ax_click.c")
             .compile("siri_remote_bridge");
 
         println!("cargo:rustc-link-lib=framework=IOKit");
@@ -19,5 +20,6 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=ApplicationServices");
         println!("cargo:rerun-if-changed=native/siri_remote_bridge.c");
         println!("cargo:rerun-if-changed=native/remote_multitouch.c");
+        println!("cargo:rerun-if-changed=native/ax_click.c");
     }
 }

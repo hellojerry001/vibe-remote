@@ -46,9 +46,66 @@ pub const APPROVE_ALL_WORDS: &[&str] = &[
     "allow always",
 ];
 
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    /// 进程内 AX 点击：在会话焦点 App 的 AX 树里找文案含关键词的可点元素并 AXPress。
+    /// 返回 1=点到 / 0=遍历过没找到 / -1=拿不到 AX（多半没辅助功能授权）。
+    /// 只用「辅助功能」授权，不需「自动化」——这是相对 osascript 路径的关键优势。
+    fn wc_ax_click_button(
+        words: *const *const std::os::raw::c_char,
+        count: std::os::raw::c_int,
+        out: *mut std::os::raw::c_char,
+        outlen: std::os::raw::c_int,
+    ) -> std::os::raw::c_int;
+}
+
+/// 进程内 AX 点击。返回值语义：
+/// - `Some(Ok(name))`：点到，按钮文案是 name；
+/// - `Some(Err(()))`：AX 可用、遍历了但没匹配到（不要再跑 osascript，省掉无谓的秒级挂起）；
+/// - `None`：AX 整体不可用（拿不到焦点 App），调用方才去兜底 osascript。
+#[cfg(target_os = "macos")]
+fn ax_click_frontmost_button(words: &[&str]) -> Option<Result<String, ()>> {
+    use std::ffi::{CStr, CString};
+    let cwords: Vec<CString> = words
+        .iter()
+        .filter_map(|w| CString::new(*w).ok())
+        .collect();
+    let ptrs: Vec<*const std::os::raw::c_char> = cwords.iter().map(|c| c.as_ptr()).collect();
+    let mut out = [0i8; 512];
+    let rc = unsafe {
+        wc_ax_click_button(
+            ptrs.as_ptr(),
+            ptrs.len() as std::os::raw::c_int,
+            out.as_mut_ptr(),
+            out.len() as std::os::raw::c_int,
+        )
+    };
+    match rc {
+        1 => {
+            let name = unsafe { CStr::from_ptr(out.as_ptr()) }
+                .to_string_lossy()
+                .into_owned();
+            Some(Ok(name))
+        }
+        0 => Some(Err(())),
+        _ => None,
+    }
+}
+
 /// 在前台 App 的所有窗口中查找标题含关键词的按钮并点击。
 /// 返回 Ok("clicked:按钮名")；找不到/超时返回 Err。
+///
+/// 首选进程内 AX API（只需辅助功能授权）；仅当 AX 整体不可用时，
+/// 才退回 osascript System Events（那条路要「自动化」授权）。
 pub fn click_frontmost_button(words: &[&str], timeout: std::time::Duration) -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        match ax_click_frontmost_button(words) {
+            Some(Ok(name)) => return Ok(format!("clicked:{name}")),
+            Some(Err(())) => return Err("not-found".to_string()),
+            None => { /* AX 不可用：落到 osascript 兜底 */ }
+        }
+    }
     let result = applescript::run_with_timeout(&build_script(words), timeout)?;
     if result.starts_with("clicked:") {
         Ok(result)
