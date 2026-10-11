@@ -727,10 +727,12 @@ const NEED_PERMISSION: &str =
 
 /// AX 找按钮的超时护栏。`entire contents` 在大窗口（Electron）上可能秒级，
 /// 不设上限会把 approve 类动作的延迟拖到用户可感知。
-/// approve/reject 是热路径（确认/返回键），护栏更紧；approve_all 低频，放宽换准确。
-const APPROVE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(600);
-const REJECT_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(600);
-const APPROVE_ALL_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1500);
+/// 但 WorkBuddy 是 Electron，「entire contents」遍历一个窗口的 AX 树要 1–3 秒，
+/// 600ms 必超时 → 永远走按键回退（而 WorkBuddy 确认卡不吃 Return/Escape）。
+/// 放宽到 3s/5s 换「真的能点到按钮」；扫不到再回退。
+const APPROVE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(3000);
+const REJECT_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(3000);
+const APPROVE_ALL_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(5000);
 
 #[cfg(test)]
 mod tests {

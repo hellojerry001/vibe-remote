@@ -32,9 +32,23 @@ export default function App() {
   const addFoundDevice = useAppStore((s) => s.addFoundDevice);
   const setScanNote = useAppStore((s) => s.setScanNote);
   const refreshConnection = useAppStore((s) => s.refreshConnection);
+  // 长按命中时的可见信号（区分「长按事件没发出」还是「发出了但动作没生效」）
+  const [lpToast, setLpToast] = useState<string | null>(null);
 
   // 全局自动更新：启动即检查（此前只在关于页挂载时才查，等于从不自动检查）
   const updater = useUpdater();
+
+  // 长按命中信号：Rust 侧在 centerLongPress / backLongPress 真正触发时推送，
+  // 用来确认「长按事件确实发出」——若看到此 toast 但 WorkBuddy 没反应，问题在动作/焦点。
+  useEffect(() => {
+    const un = listen<string>("siri-remote-longpress", (e) => {
+      setLpToast(e.payload);
+      window.setTimeout(() => setLpToast(null), 2500);
+    });
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
+  }, []);
   useEffect(() => {
     invoke<string>("get_app_version")
       .then((v) => {
@@ -130,6 +144,30 @@ export default function App() {
             <path d="M4.8 8.1 7 10.3 11.2 5.8" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           {updater.toast}
+        </div>
+      )}
+      {lpToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-no-drag
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: 24,
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            background: "#1f6feb",
+            color: "#fff",
+            padding: "8px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            boxShadow: "0 4px 16px rgba(0,0,0,.25)",
+            pointerEvents: "none",
+          }}
+        >
+          ⌾ 长按触发：{lpToast}
         </div>
       )}
       {/* 下载更新中的全局横幅：不管用户停在哪个页都能看到进度 */}

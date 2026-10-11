@@ -13,8 +13,10 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::AppState;
 
-/// 确认键按住超过该时长判定为长按（centerLongPress）
-const LONG_PRESS: Duration = Duration::from_millis(600);
+/// 确认键按住超过该时长判定为长按（centerLongPress）。
+/// 取 400ms：A2854 实体键的「长按」手感约 300–500ms，600ms 偏长、容易按不够长
+/// 而落到短按。40ms 的轮询粒度下判定误差 < 40ms，足够稳。
+const LONG_PRESS: Duration = Duration::from_millis(400);
 /// A2854 会把同一个逻辑按钮通过多个 HID 接口重复上报，25ms 内的相同状态变化直接丢弃
 const DEDUPE: Duration = Duration::from_millis(25);
 
@@ -201,129 +203,160 @@ pub fn start(app: AppHandle, state: &tauri::State<AppState>) -> Result<(), Strin
             long_fired: false,
         }); // 0=select, 1=back
 
-        while let Ok(raw) = event_rx.recv() {
-            if raw.name == "hidOpenError" || raw.name == "permissionError" {
-                // 打开失败 ≠ 未授权。先看真实权限状态，再决定提示文案。
-                let access = unsafe { wc_hid_listen_event_access() };
-                let detail = if PermissionState::from_raw(access) != PermissionState::Granted {
-                    format!("输入监控未授权（IOHID Access={access}），HID Manager 打开失败")
-                } else {
-                    format!(
-                        "HID Manager 打开失败（IOReturn={}）：A2854 未匹配或设备已被占用",
-                        raw.value
-                    )
-                };
-                let _ = app_for_events.emit("siri-remote-error", detail.clone());
-                // 错误文本交给状态机落库，这里只推信号，避免两处写入
-                crate::remote::connection::push(
-                    crate::remote::connection::Signal::HidError(detail),
-                );
-                continue;
-            }
+        // 复用同一个 fire：按下沿 / 短按 / 长按统一走它，避免三处重复实现
+        let fire = |event: &'static str, st: &tauri::State<AppState>| {
+            *st.last_event.lock().unwrap() = Some(event.to_string());
+            let result = st.engine.lock().unwrap().execute(event);
+            crate::remote::diag::push_result(&app_for_events, &result);
+            let _ = app_for_events.emit("remote-event", &result);
+            result
+        };
 
-            // 原始样本抓取：触摸板报文形态未知，raw / touch / deviceSeen 全量记进
-            // diag.json，用真实数据定算法，不给「没生效」留猜的空间。
-            // raw 与 touch 都不进按键路径：raw 高频洪泛会淹没去抖与长按计时。
-            if raw.name == "raw" || raw.name == "deviceSeen" || raw.name.starts_with("touch") {
-                crate::remote::diag::push_raw(
-                    &app_for_events,
-                    &raw.name,
-                    raw.usage_page,
-                    raw.usage,
-                    raw.value,
-                );
-                if raw.name.starts_with("touch") {
-                    crate::remote::touchpad::push(&raw.name, raw.value);
+        // A2854 按住期间只发一条按下报文、不重复上报，所以长按判定不能依赖
+        // 「收到报文时检查计时」——按住 600ms 之间没有任何报文到来，那段代码
+        // 永远不会执行，导致 long_fired 永远为 false、抬起永远发短按。
+        // 改成周期 recv_timeout 唤醒：每 40ms 一次 tick，无论是否收到按键都轮询
+        // 长按计时，从而能在按住够久时真正触发 centerLongPress / backLongPress。
+        const POLL_TICK: Duration = Duration::from_millis(40);
+        loop {
+            let recv = event_rx.recv_timeout(POLL_TICK);
+            match recv {
+                Ok(raw) => {
+                    if raw.name == "hidOpenError" || raw.name == "permissionError" {
+                        // 打开失败 ≠ 未授权。先看真实权限状态，再决定提示文案。
+                        let access = unsafe { wc_hid_listen_event_access() };
+                        let detail = if PermissionState::from_raw(access) != PermissionState::Granted {
+                            format!("输入监控未授权（IOHID Access={access}），HID Manager 打开失败")
+                        } else {
+                            format!(
+                                "HID Manager 打开失败（IOReturn={}）：A2854 未匹配或设备已被占用",
+                                raw.value
+                            )
+                        };
+                        let _ = app_for_events.emit("siri-remote-error", detail.clone());
+                        // 错误文本交给状态机落库，这里只推信号，避免两处写入
+                        crate::remote::connection::push(
+                            crate::remote::connection::Signal::HidError(detail),
+                        );
+                        continue;
+                    }
+
+                    // 原始样本抓取：触摸板报文形态未知，raw / touch / deviceSeen 全量记进
+                    // diag.json，用真实数据定算法，不给「没生效」留猜的空间。
+                    // raw 与 touch 都不进按键路径：raw 高频洪泛会淹没去抖与长按计时。
+                    if raw.name == "raw" || raw.name == "deviceSeen" || raw.name.starts_with("touch") {
+                        crate::remote::diag::push_raw(
+                            &app_for_events,
+                            &raw.name,
+                            raw.usage_page,
+                            raw.usage,
+                            raw.value,
+                        );
+                        if raw.name.starts_with("touch") {
+                            crate::remote::touchpad::push(&raw.name, raw.value);
+                        }
+                        continue;
+                    }
+
+                    if raw.name == "select" {
+                        crate::remote::touchpad::push("touchButton", raw.value);
+                    }
+                    let pressed = raw.value != 0;
+                    let now = Instant::now();
+
+                    if let Some((name, was_pressed, at)) = &last {
+                        if *name == raw.name && *was_pressed == pressed && now.duration_since(*at) < DEDUPE {
+                            continue;
+                        }
+                    }
+                    last = Some((raw.name.clone(), pressed, now));
+
+                    let event_name = raw.name.clone();
+                    // debug 构建把每次按键的 usage 打到 stderr：遥控器上有几个键位
+                    // 各代之间 usage 不同（例如 0x0C/0x60、0x0C/0x04），
+                    // 让用户按一遍就能把映射表补全，不用来回猜。
+                    #[cfg(all(debug_assertions, target_os = "macos"))]
+                    eprintln!(
+                        "[viberemote] HID page=0x{:02X} usage=0x{:02X} value={} → {}",
+                        raw.usage_page, raw.usage, raw.value, event_name
+                    );
+                    let hid = HidEvent {
+                        event: event_name.clone(),
+                        usage_page: raw.usage_page,
+                        usage: raw.usage,
+                        value: raw.value,
+                        pressed,
+                    };
+                    {
+                        let st = app_for_events.state::<AppState>();
+                        *st.last_hid.lock().unwrap() = Some(hid.clone());
+                    }
+                    let _ = app_for_events.emit("siri-remote-input", &hid);
+
+                    let lp_idx = match raw.name.as_str() {
+                        "select" => Some(0usize),
+                        "back" => Some(1usize),
+                        _ => None,
+                    };
+
+                    if let Some(idx) = lp_idx {
+                        let (short_ev, long_ev) = if idx == 0 {
+                            ("center", "centerLongPress")
+                        } else {
+                            ("back", "backLongPress")
+                        };
+                        let st = &mut lp[idx];
+                        if pressed {
+                            // 仅记录按下时刻；长按判定交给循环底部的周期轮询。
+                            // 此处不再做「now - since >= LONG_PRESS」即时判断——
+                            // A2854 按住不重复上报，首次按下 elapsed 必为 0，判断恒假，
+                            // 且按住期间无新报文，那个分支永远没机会再跑。
+                            st.since.get_or_insert(now);
+                        } else {
+                            if !st.long_fired {
+                                let app_state = app_for_events.state::<AppState>();
+                                fire(short_ev, &app_state);
+                            }
+                            st.reset();
+                        }
+                        // 不 continue：让循环底部的长按轮询照常执行（本 tick 也要检查）
+                    } else {
+                        // 其他按键打断两个长按计时
+                        for s in lp.iter_mut() {
+                            s.reset();
+                        }
+
+                        // 只在按下沿触发。抬起沿（value=0）也 fire 的话，一次物理按键 = 两次动作：
+                        // Cmd+B 会「按一下开、抬手又关」，Cmd+D 会「开始录、抬手又停」——
+                        // 用户感知就是「连发 + 延迟」。select/back 的两个沿在长按状态机里单独处理。
+                        if pressed {
+                            if let Some(event) = to_remote_event(&event_name) {
+                                let st = app_for_events.state::<AppState>();
+                                fire(event, &st);
+                            }
+                        }
+                    }
                 }
-                continue;
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    // 本 tick 无按键到达：仅执行下方长按轮询，不处理任何事件
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             }
 
-            if raw.name == "select" {
-                crate::remote::touchpad::push("touchButton", raw.value);
-            }
-            let pressed = raw.value != 0;
+            // ===== 长按轮询：每个 tick（含超时 tick）都执行 =====
+            // A2854 按住期间无报文，必须靠周期唤醒来发现「已经按住够久了」。
             let now = Instant::now();
-
-            if let Some((name, was_pressed, at)) = &last {
-                if *name == raw.name && *was_pressed == pressed && now.duration_since(*at) < DEDUPE {
-                    continue;
-                }
-            }
-            last = Some((raw.name.clone(), pressed, now));
-
-            let event_name = raw.name.clone();
-            // debug 构建把每次按键的 usage 打到 stderr：遥控器上有几个键位
-            // 各代之间 usage 不同（例如 0x0C/0x60、0x0C/0x04），
-            // 让用户按一遍就能把映射表补全，不用来回猜。
-            #[cfg(all(debug_assertions, target_os = "macos"))]
-            eprintln!(
-                "[viberemote] HID page=0x{:02X} usage=0x{:02X} value={} → {}",
-                raw.usage_page, raw.usage, raw.value, event_name
-            );
-            let hid = HidEvent {
-                event: event_name.clone(),
-                usage_page: raw.usage_page,
-                usage: raw.usage,
-                value: raw.value,
-                pressed,
-            };
-            {
-                let st = app_for_events.state::<AppState>();
-                *st.last_hid.lock().unwrap() = Some(hid.clone());
-            }
-            let _ = app_for_events.emit("siri-remote-input", &hid);
-
-            // 走 Mapping Engine 查当前 Preset 的映射；未配置时引擎会返回提示而不执行
-            let fire = |event: &'static str, st: &tauri::State<AppState>| {
-                *st.last_event.lock().unwrap() = Some(event.to_string());
-                let result = st.engine.lock().unwrap().execute(event);
-                crate::remote::diag::push_result(&app_for_events, &result);
-                let _ = app_for_events.emit("remote-event", &result);
-                result
-            };
-
-            let lp_idx = match raw.name.as_str() {
-                "select" => Some(0usize),
-                "back" => Some(1usize),
-                _ => None,
-            };
-
-            if let Some(idx) = lp_idx {
-                let (short_ev, long_ev) = if idx == 0 {
-                    ("center", "centerLongPress")
-                } else {
-                    ("back", "backLongPress")
-                };
-                let st = &mut lp[idx];
-                if pressed {
-                    let started = *st.since.get_or_insert(now);
+            for (idx, st) in lp.iter_mut().enumerate() {
+                if let Some(started) = st.since {
                     if !st.long_fired && now.duration_since(started) >= LONG_PRESS {
                         st.long_fired = true;
+                        let long_ev = if idx == 0 { "centerLongPress" } else { "backLongPress" };
+                        // 长按命中的可见信号：调试与真机验证时一眼能确认「长按事件确实发出了」，
+                        // 区分「事件没触发」还是「触发了但动作没生效」。
+                        let _ = app_for_events.emit("siri-remote-longpress", long_ev);
                         let app_state = app_for_events.state::<AppState>();
                         fire(long_ev, &app_state);
                     }
-                } else {
-                    if !st.long_fired {
-                        let app_state = app_for_events.state::<AppState>();
-                        fire(short_ev, &app_state);
-                    }
-                    st.reset();
-                }
-                continue;
-            }
-
-            // 其他按键打断两个长按计时
-            for s in lp.iter_mut() {
-                s.reset();
-            }
-
-            // 只在按下沿触发。抬起沿（value=0）也 fire 的话，一次物理按键 = 两次动作：
-            // Cmd+B 会「按一下开、抬手又关」，Cmd+D 会「开始录、抬手又停」——
-            // 用户感知就是「连发 + 延迟」。select/back 的两个沿在长按状态机里单独处理。
-            if pressed {
-                if let Some(event) = to_remote_event(&event_name) {
-                    let st = app_for_events.state::<AppState>();
-                    fire(event, &st);
                 }
             }
         }

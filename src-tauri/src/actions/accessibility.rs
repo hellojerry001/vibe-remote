@@ -45,15 +45,7 @@ fn build_script(words: &[&str]) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!(
-        r#"on lower(t)
-	try
-		return t as lowercase
-	on error
-		return t
-	end try
-end lower
-
-tell application "System Events"
+        r#"tell application "System Events"
 	set procName to name of first application process whose frontmost is true
 	tell application process procName
 		repeat with w in windows
@@ -71,9 +63,12 @@ tell application "System Events"
 										return "clicked:" & n
 									end if
 								end repeat
-								-- 第二遍大小写不敏感子串兜底（中文不会小写，原样回退）
+								-- 第二遍子串兜底。AppleScript 文本比较默认就大小写不敏感，
+								-- 直接 contains 即可；不要用 `my lower of x` 这种写法——
+								-- `of` 是属性访问语法，会被当成取属性而不是 handler 调用，
+								-- 整段脚本直接编译失败（此前批准/拒绝全失效的根因）。
 								repeat with kw in {{{keywords}}}
-									if (my lower of n) contains (my lower of (kw as string)) then
+									if n contains (kw as string) then
 										click el
 										return "clicked:" & n
 									end if
