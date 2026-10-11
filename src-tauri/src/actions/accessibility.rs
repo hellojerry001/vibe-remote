@@ -3,7 +3,21 @@
 
 use super::applescript;
 
-pub const APPROVE_WORDS: &[&str] = &["approve", "allow", "confirm", "accept", "批准", "允许", "确认"];
+pub const APPROVE_WORDS: &[&str] = &[
+    "approve",
+    "allow",
+    "confirm",
+    "accept",
+    "批准",
+    "允许",
+    "确认",
+    "同意",
+    "确定",
+    "好",
+    "是",
+    "ok",
+    "yes",
+];
 pub const REJECT_WORDS: &[&str] = &[
     "reject",
     "decline",
@@ -15,6 +29,11 @@ pub const REJECT_WORDS: &[&str] = &[
     "不允许",
     "拒绝",
     "取消",
+    "否",
+    "no",
+    "不用",
+    "稍后",
+    "暂不",
 ];
 /// 「全部允许」的按钮文案变体；WorkBuddy 改文案时在这里补
 pub const APPROVE_ALL_WORDS: &[&str] = &[
@@ -53,13 +72,23 @@ fn build_script(words: &[&str]) -> String {
 				set els to entire contents of w
 				repeat with el in els
 					try
-						if class of el is button then
+						set c to class of el
+						-- Electron / 自定义弹窗里可点的元素不一定是原生 button：
+						-- 可能是 UI element、static text（带 onClick）、radio/checkbox。
+						-- 这些都纳入候选，避免「按钮存在但 class 不是 button 而点不到」。
+						if c is button or c is UI element or c is static text or c is radio button or c is checkbox then
 							set n to name of el
-							if n is not missing value then
+							if n is not missing value and n is not "" then
 								-- 第一遍精确匹配：避免「允许」优先匹配到「始终允许」
 								repeat with kw in {{{keywords}}}
 									if n is (kw as string) then
-										click el
+										try
+											click el
+										on error
+											try
+												perform action 1 of el
+											end try
+										end try
 										return "clicked:" & n
 									end if
 								end repeat
@@ -69,7 +98,13 @@ fn build_script(words: &[&str]) -> String {
 								-- 整段脚本直接编译失败（此前批准/拒绝全失效的根因）。
 								repeat with kw in {{{keywords}}}
 									if n contains (kw as string) then
-										click el
+										try
+											click el
+										on error
+											try
+												perform action 1 of el
+											end try
+										end try
 										return "clicked:" & n
 									end if
 								end repeat
