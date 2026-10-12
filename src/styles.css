@@ -890,6 +890,12 @@ input[type="range"] {
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
 }
 
+/* Build Tag：与 muted 标签对称，让「跑的是哪次构建」一眼可辨 */
+.hid-grid .ok {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .card.permission {
   align-items: center;
 }

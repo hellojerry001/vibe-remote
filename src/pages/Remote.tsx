@@ -156,6 +156,8 @@ export default function Remote() {
           <span>{sys?.bundleId ?? "—"}</span>
           <span className="muted">App Path</span>
           <span>{sys?.appPath ?? "—"}</span>
+          <span className="muted">Build Tag</span>
+          <span className="ok">{sys?.buildTag ?? "—"}</span>
         </div>
       </div>
 

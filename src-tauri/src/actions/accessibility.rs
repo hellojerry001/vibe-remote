@@ -48,8 +48,11 @@ pub const APPROVE_ALL_WORDS: &[&str] = &[
 
 #[cfg(target_os = "macos")]
 unsafe extern "C" {
-    /// 进程内 AX 点击：在会话焦点 App 的 AX 树里找文案含关键词的可点元素并 AXPress。
-    /// 返回 1=点到 / 0=遍历过没找到 / -1=拿不到 AX（多半没辅助功能授权）。
+    /// 进程内 AX 点击：在目标 App 的 AX 树里找文案含关键词的可点元素并点击
+    /// （先 AXPress，失败再按坐标合成真实鼠标点击）。
+    /// 返回 1=点到 / 0=遍历过没找到 / -1=解析不到目标 App / -2=辅助功能未授权。
+    /// `out` 始终带回诊断串：点到时是按钮文案，否则是失败原因 + 统计
+    /// （来源 / pid / 窗口数 / 元素数 / 属性写入结果 / 角色清单）。
     /// 只用「辅助功能」授权，不需「自动化」——这是相对 osascript 路径的关键优势。
     fn wc_ax_click_button(
         words: *const *const std::os::raw::c_char,
@@ -59,13 +62,15 @@ unsafe extern "C" {
     ) -> std::os::raw::c_int;
 }
 
-/// 进程内 AX 点击。返回值语义：
+/// 进程内 AX 点击。返回 `(判定, 诊断串)`：
 /// - `Some(Ok(name))`：点到，按钮文案是 name；
 /// - `Some(Err(reason))`：AX 可用、已尽力（含启用 Electron AX 树 + 退避重试）但没点到，
 ///   reason 是可读原因，直接抛给上层，**不再跑 osascript**（省掉无谓的秒级挂起）；
-/// - `None`：AX 整体不可用（拿不到焦点 App，多半没辅助功能授权），调用方才去兜底 osascript。
+/// - `None`：连目标 App 都解析不到（`-1`），由调用方兜底 osascript；
+/// - 诊断串：无论成败都由 C 层填好，失败时透传给上层展示——
+///   此前 approve 只剩一句 `not-found`，完全看不出卡在哪一级。
 #[cfg(target_os = "macos")]
-fn ax_click_frontmost_button(words: &[&str]) -> Option<Result<String, String>> {
+fn ax_click_frontmost_button(words: &[&str]) -> (Option<Result<String, String>>, String) {
     use std::ffi::{CStr, CString};
     let cwords: Vec<CString> = words
         .iter()
@@ -81,39 +86,49 @@ fn ax_click_frontmost_button(words: &[&str]) -> Option<Result<String, String>> {
             out.len() as std::os::raw::c_int,
         )
     };
-    match rc {
-        1 => {
-            let name = unsafe { CStr::from_ptr(out.as_ptr()) }
-                .to_string_lossy()
-                .into_owned();
-            Some(Ok(name))
-        }
-        0 => Some(Err(
-            "AX 树中未找到匹配按钮（已启用 Electron 辅助功能树并重试）".to_string(),
-        )),
+    let diag = unsafe { CStr::from_ptr(out.as_ptr()) }
+        .to_string_lossy()
+        .into_owned();
+    let verdict = match rc {
+        1 => Some(Ok(diag.clone())),
+        0 => Some(Err(format!("AX 树未命中（{diag}）"))),
+        -2 => Some(Err(format!("辅助功能未授权：{diag}"))),
         _ => None,
-    }
+    };
+    (verdict, diag)
 }
 
 /// 在前台 App 的所有窗口中查找标题含关键词的按钮并点击。
 /// 返回 Ok("clicked:按钮名")；找不到/超时返回 Err。
 ///
-/// 首选进程内 AX API（只需辅助功能授权）；仅当 AX 整体不可用时，
-/// 才退回 osascript System Events（那条路要「自动化」授权）。
+/// 首选进程内 AX API（只需辅助功能授权）；仅当 AX 连目标 App 都解析不到时，
+/// 才退回 osascript System Events（那条路要「自动化」授权），并把 AX 侧诊断
+/// 附在错误尾部，保证失败原因始终可读。
 pub fn click_frontmost_button(words: &[&str], timeout: std::time::Duration) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        match ax_click_frontmost_button(words) {
+        let (verdict, diag) = ax_click_frontmost_button(words);
+        match verdict {
             Some(Ok(name)) => return Ok(format!("clicked:{name}")),
             Some(Err(reason)) => return Err(reason),
-            None => { /* AX 不可用：落到 osascript 兜底 */ }
+            None => {
+                let result = applescript::run_with_timeout(&build_script(words), timeout)?;
+                if result.starts_with("clicked:") {
+                    Ok(result)
+                } else {
+                    Err(format!("{result}; AX:{diag}"))
+                }
+            }
         }
     }
-    let result = applescript::run_with_timeout(&build_script(words), timeout)?;
-    if result.starts_with("clicked:") {
-        Ok(result)
-    } else {
-        Err(result)
+    #[cfg(not(target_os = "macos"))]
+    {
+        let result = applescript::run_with_timeout(&build_script(words), timeout)?;
+        if result.starts_with("clicked:") {
+            Ok(result)
+        } else {
+            Err(result)
+        }
     }
 }
 

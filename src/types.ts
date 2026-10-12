@@ -48,6 +48,8 @@ export interface SystemStatus {
   productIdWhitelist: string[];
   appPath: string;
   bundleId: string;
+  /** 构建标记：版本号长期停在 0.2.2，用它确认跑的是哪次构建 */
+  buildTag: string;
   lastHidEvent: HidEvent | null;
 }
 

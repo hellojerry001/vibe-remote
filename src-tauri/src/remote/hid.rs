@@ -54,6 +54,10 @@ const PERMISSION_RETRY: Duration = Duration::from_secs(3);
 pub const VENDOR_ID: &str = "0x004C";
 pub const PRODUCT_ID_WHITELIST: [&str; 4] = ["0x0266", "0x026D", "0x0314", "0x0315"];
 
+/// 构建标记（真机链路排障用）：改「目标 App 解析 / 找按钮 / 长按」这类逻辑就 +1。
+/// `ax-multi-1` = 三级解析目标 App + 坐标点击兜底 + 诊断串（2026-10-12）。
+pub const BUILD_TAG: &str = "ax-multi-1";
+
 fn hex_pid(pid: i32) -> String {
     format!("0x{pid:04X}")
 }
@@ -101,6 +105,10 @@ pub struct SystemStatus {
     pub app_path: String,
     /// Tauri identifier，与 Info.plist 的 CFBundleIdentifier 应一致
     pub bundle_id: &'static str,
+    /// 构建标记：每次改「找按钮 / 长按」这类真机链路就 +1。
+    /// 版本号长期停在 0.2.2，用户无法从界面分辨跑的是哪次构建——
+    /// 这个字段让「设备状态」页能直接核对，避免拿旧 dmg 反复测试。
+    pub build_tag: &'static str,
     pub last_hid_event: Option<HidEvent>,
 }
 
@@ -457,6 +465,7 @@ pub fn system_status(state: &tauri::State<AppState>) -> SystemStatus {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "未知".to_string()),
         bundle_id: crate::BUNDLE_ID,
+        build_tag: BUILD_TAG,
         last_hid_event: state.last_hid.lock().unwrap().clone(),
     }
 }
@@ -478,6 +487,7 @@ pub fn system_status(state: &tauri::State<AppState>) -> SystemStatus {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "未知".to_string()),
         bundle_id: crate::BUNDLE_ID,
+        build_tag: BUILD_TAG,
         last_hid_event: state.last_hid.lock().unwrap().clone(),
     }
 }
