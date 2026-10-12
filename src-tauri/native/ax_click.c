@@ -1,17 +1,27 @@
-// 用 macOS Accessibility API（AXUIElement）直接在前台 App 的 AX 树里找按钮并 AXPress。
+// 用 macOS Accessibility API（AXUIElement）在前台 App 的 AX 树里找按钮并 AXPress。
 //
 // 为什么不用 osascript / System Events：
-//   那条路径要 TCC「自动化（Automation）」授权（System Events 去控制目标 App），
-//   与「辅助功能（Accessibility）」是两套独立开关。很多机器只给了辅助功能、
-//   没给自动化，osascript 就会 -10004、或卡在授权弹窗上被超时杀掉 → 点不到按钮，
-//   表现就是「批准/拒绝没反应」。AX API 只受「辅助功能」管辖
-//   （AXIsProcessTrusted 一套），不需要自动化；而键盘注入能用的机器辅助功能必定已授权。
+//   那条路要 TCC「自动化（Automation）」授权（System Events 去控制目标 App），
+//   与「辅助功能」是两套独立开关；而且它同样只能看到 App 暴露出来的 AX 树。
+//   AX API 只受「辅助功能」管辖（AXIsProcessTrusted），键盘注入能用的机器必定已授权。
 //
-// 返回值：1 = 点到；0 = 遍历过但没匹配到；-1 = 拿不到 AX（多半没有辅助功能授权）
+// ⚠️ 关键前提 —— 此前两版都失败在这里（2026-10-12 调研坐实）：
+//   Electron / Chromium 应用**默认关闭** Web 内容的辅助功能树
+//   （renderer accessibility 默认 off，只有检测到 VoiceOver 等辅助技术时才开）。
+//   此时 AX 树只剩窗口框和菜单栏，DOM 里的「允许 / 拒绝」按钮根本不在树里——
+//   osascript 与 AX 遍历看到的都是同一棵空树，所以两条路都点不到。
+//   解法（Electron 官方文档 / justzht.com / AGI-Super-Team cua-driver 一致）：
+//   向目标 App 的 AXUIElement 写 AXManualAccessibility = true，并配合
+//   AXEnhancedUserInterface = true（有的 App 读前者、有的读后者，两个都要设），
+//   Chromium 才会**异步**（约几百毫秒）把 DOM 按钮建进 AX 树，然后再遍历点击。
+//   这两个属性同样只需要「辅助功能」授权，不需要「自动化」。
+//
+// 返回值：1 = 点到；0 = 遍历过但没匹配到（已含启用 AX 树 + 重试）；-1 = 拿不到 AX（多半没辅助功能授权）
 
 #include <ApplicationServices/ApplicationServices.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 // role 白名单：Electron / 自定义弹窗里可点元素不一定是原生 button。
 // 只接受「按下确实可能生效」的 role（非可点元素 AXPress 会返回错误，会被自动跳过）。
@@ -110,6 +120,29 @@ static int press_in_array(CFArrayRef arr, const char* const* words, int count,
   return 0;
 }
 
+// 对 app 做一次完整查找：先 kAXWindows，再退回 kAXChildren（模态 sheet 用）
+static int press_once(AXUIElementRef app, const char* const* words, int count,
+                      char* out, size_t outlen) {
+  CFTypeRef windows = NULL;
+  int result = 0;
+  if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute, &windows) == kAXErrorSuccess && windows) {
+    if (CFGetTypeID(windows) == CFArrayGetTypeID()) {
+      result = press_in_array((CFArrayRef)windows, words, count, out, outlen);
+    }
+    CFRelease(windows);
+  }
+  if (!result) {
+    CFTypeRef children = NULL;
+    if (AXUIElementCopyAttributeValue(app, kAXChildrenAttribute, &children) == kAXErrorSuccess && children) {
+      if (CFGetTypeID(children) == CFArrayGetTypeID()) {
+        result = press_in_array((CFArrayRef)children, words, count, out, outlen);
+      }
+      CFRelease(children);
+    }
+  }
+  return result;
+}
+
 int wc_ax_click_button(const char* const* words, int count, char* out, int outlen) {
   if (out && outlen > 0) out[0] = 0;
   AXUIElementRef sys = AXUIElementCreateSystemWide();
@@ -120,25 +153,20 @@ int wc_ax_click_button(const char* const* words, int count, char* out, int outle
   if (e != kAXErrorSuccess || !focused) return -1;
 
   AXUIElementRef app = (AXUIElementRef)focused;
-  int result = 0;
 
-  CFTypeRef windows = NULL;
-  if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute, &windows) == kAXErrorSuccess && windows) {
-    if (CFGetTypeID(windows) == CFArrayGetTypeID()) {
-      result = press_in_array((CFArrayRef)windows, words, count, out, (size_t)outlen);
-    }
-    CFRelease(windows);
-  }
+  // 让 Electron / Chromium 把 Web 内容暴露到 AX 树 —— 这是能点到 DOM 按钮的前提。
+  // 两个属性都写：有的 App 读 AXManualAccessibility，有的读 AXEnhancedUserInterface。
+  // 幂等，已开启的 App 再设一次无害；一旦开启，Chromium 会保持到进程重启。
+  AXUIElementSetAttributeValue(app, CFSTR("AXManualAccessibility"), kCFBooleanTrue);
+  AXUIElementSetAttributeValue(app, CFSTR("AXEnhancedUserInterface"), kCFBooleanTrue);
 
-  // 有些 App（或模态 sheet）不把弹窗挂在 kAXWindows 下，退回遍历 app 的 children
-  if (!result) {
-    CFTypeRef children = NULL;
-    if (AXUIElementCopyAttributeValue(app, kAXChildrenAttribute, &children) == kAXErrorSuccess && children) {
-      if (CFGetTypeID(children) == CFArrayGetTypeID()) {
-        result = press_in_array((CFArrayRef)children, words, count, out, (size_t)outlen);
-      }
-      CFRelease(children);
-    }
+  // Chromium 是异步建树的：先立刻试一次（原生 App 树是现成的，快），
+  // 失败则退避重试（Electron 首建约几百毫秒）。最坏多花约 1.3s，只发生在审批动作上。
+  int result = press_once(app, words, count, out, (size_t)outlen);
+  const int delays_ms[] = {300, 500, 500};
+  for (int i = 0; i < 3 && !result; i++) {
+    usleep((useconds_t)(delays_ms[i] * 1000));
+    result = press_once(app, words, count, out, (size_t)outlen);
   }
 
   CFRelease(app);

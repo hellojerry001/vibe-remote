@@ -61,10 +61,11 @@ unsafe extern "C" {
 
 /// 进程内 AX 点击。返回值语义：
 /// - `Some(Ok(name))`：点到，按钮文案是 name；
-/// - `Some(Err(()))`：AX 可用、遍历了但没匹配到（不要再跑 osascript，省掉无谓的秒级挂起）；
-/// - `None`：AX 整体不可用（拿不到焦点 App），调用方才去兜底 osascript。
+/// - `Some(Err(reason))`：AX 可用、已尽力（含启用 Electron AX 树 + 退避重试）但没点到，
+///   reason 是可读原因，直接抛给上层，**不再跑 osascript**（省掉无谓的秒级挂起）；
+/// - `None`：AX 整体不可用（拿不到焦点 App，多半没辅助功能授权），调用方才去兜底 osascript。
 #[cfg(target_os = "macos")]
-fn ax_click_frontmost_button(words: &[&str]) -> Option<Result<String, ()>> {
+fn ax_click_frontmost_button(words: &[&str]) -> Option<Result<String, String>> {
     use std::ffi::{CStr, CString};
     let cwords: Vec<CString> = words
         .iter()
@@ -87,7 +88,9 @@ fn ax_click_frontmost_button(words: &[&str]) -> Option<Result<String, ()>> {
                 .into_owned();
             Some(Ok(name))
         }
-        0 => Some(Err(())),
+        0 => Some(Err(
+            "AX 树中未找到匹配按钮（已启用 Electron 辅助功能树并重试）".to_string(),
+        )),
         _ => None,
     }
 }
@@ -102,7 +105,7 @@ pub fn click_frontmost_button(words: &[&str], timeout: std::time::Duration) -> R
     {
         match ax_click_frontmost_button(words) {
             Some(Ok(name)) => return Ok(format!("clicked:{name}")),
-            Some(Err(())) => return Err("not-found".to_string()),
+            Some(Err(reason)) => return Err(reason),
             None => { /* AX 不可用：落到 osascript 兜底 */ }
         }
     }

@@ -527,11 +527,11 @@ pub fn dispatch(event: &str, m: &Mapping) -> ActionResult {
                         detail: format!("已点击按钮 {name}"),
                         ..base
                     },
-                    Err(_) => {
+                    Err(e) => {
                         keyboard::press_key(keyboard::key_code("return").unwrap(), 0);
                         ActionResult {
                             ok: true,
-                            detail: "未找到批准按钮，已回退发送 Return".into(),
+                            detail: format!("未点击「批准」：{e}；已回退发送 Return"),
                             ..base
                         }
                     }
@@ -553,11 +553,11 @@ pub fn dispatch(event: &str, m: &Mapping) -> ActionResult {
                         detail: format!("已点击按钮 {name}"),
                         ..base
                     },
-                    Err(_) => {
+                    Err(e) => {
                         keyboard::press_key(keyboard::key_code("escape").unwrap(), 0);
                         ActionResult {
                             ok: true,
-                            detail: "未找到拒绝按钮，已回退发送 Escape".into(),
+                            detail: format!("未点击「拒绝」：{e}；已回退发送 Escape"),
                             ..base
                         }
                     }
